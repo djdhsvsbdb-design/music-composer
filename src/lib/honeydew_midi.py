@@ -118,16 +118,26 @@ def decode_tokens(tokens) -> pretty_midi.PrettyMIDI:
 
 
 def split_tokens(tokens, seq_len=2048, min_tokens=128):
-    """Non-overlapping training windows; always append EOS to a short tail."""
-    body = list(tokens)
+    """Split one MIDI into bounded windows, giving every window its own BOS.
+
+    Only the final window retains the real EOS. Artificially adding EOS at
+    every window boundary teaches the model that arbitrary crops end songs.
+    """
+    if seq_len < 3:
+        raise ValueError("seq_len must be at least 3")
+    source = list(tokens)
+    if not source:
+        return []
+    # encode_midi emits BOS ... EOS. Keep the actual EOS attached only to
+    # the final crop and reserve one position in every window for a fresh BOS.
+    body = source[1:] if source[0] == BOS else source
+    capacity = seq_len - 1
     windows = []
-    for start in range(0, len(body), seq_len):
-        chunk = body[start:start + seq_len]
-        if len(chunk) < min_tokens:
+    for start in range(0, len(body), capacity):
+        chunk = body[start:start + capacity]
+        if len(chunk) + 1 < min_tokens:
             continue
-        if chunk[-1] != EOS and len(chunk) < seq_len:
-            chunk.append(EOS)
-        windows.append(chunk)
+        windows.append([BOS, *chunk])
     return windows
 
 
