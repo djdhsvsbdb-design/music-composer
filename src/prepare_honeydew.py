@@ -30,7 +30,9 @@ def main():
             tokens = encode_midi(load_midi(path))
             for chunk in split_tokens(tokens, args.seq_len):
                 samples.append(chunk)
-                groups.append(str(path.relative_to(args.midi_dir)))
+                rel = path.relative_to(args.midi_dir)
+                group = str(rel.parent) if str(rel.parent) != "." else path.stem
+                groups.append(group)
         except Exception as exc:
             errors.append((str(path), repr(exc)))
 
